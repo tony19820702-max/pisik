@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<title>피식 — 공감 생성기</title>
+<!-- PWA: 홈화면 추가 시 앱처럼 보임 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="피식">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafafa;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 40px;}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes pop{0%{transform:scale(0.88);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+  @keyframes wiggle{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+  @keyframes fadeUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+  h1{font-size:22px;font-weight:700;color:#111;margin-bottom:4px;}
+  .sub{font-size:13px;color:#888;margin-bottom:24px;}
+  #face-el{font-size:86px;text-align:center;cursor:pointer;user-select:none;animation:bounce 2.8s ease-in-out infinite;line-height:1.1;}
+  .hint{font-size:12px;color:#aaa;margin:4px 0 16px;}
+  .mood-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;max-width:480px;width:100%;}
+  .mood-btn{padding:6px 13px;font-size:13px;cursor:pointer;border-radius:999px;border:1px solid #ddd;background:#fff;color:#666;transition:all 0.13s;}
+  .mood-btn:hover,.mood-btn.on{background:#111;color:#fff;border-color:#111;}
+  .card{background:#fff;border:1px solid #eee;border-radius:16px;padding:20px 22px;animation:pop 0.38s ease;max-width:480px;width:100%;margin-bottom:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);}
+  .tag-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .tag{display:inline-block;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;}
+  .react-txt{font-size:12px;color:#999;}
+  .main-txt{font-size:18px;font-weight:700;color:#111;margin-bottom:8px;line-height:1.5;}
+  .sub-txt{font-size:14px;color:#666;line-height:1.75;margin-bottom:14px;}
+  .react-row{display:flex;gap:7px;flex-wrap:wrap;}
+  .react-btn{padding:5px 12px;font-size:13px;cursor:pointer;border-radius:999px;border:1px solid #eee;background:#f5f5f5;transition:transform 0.1s;color:#333;}
+  .react-btn:active{transform:scale(1.25);}
+  #next-btn{max-width:480px;width:100%;padding:14px;font-size:16px;font-weight:600;cursor:pointer;border-radius:12px;border:none;background:#111;color:#fff;transition:opacity 0.15s;}
+  #next-btn:hover{opacity:0.85;}
+  #next-btn:active{transform:scale(0.98);}
+  #streak-el{font-size:13px;color:#888;margin-top:10px;min-height:18px;}
+</style>
+</head>
+<body>
+
+<h1>피식 😶</h1>
+<p class="sub">누를 때마다 새로운 공감</p>
+
+<div id="face-el" onclick="shakeFace()">😶</div>
+<p class="hint">눌러봐요</p>
+
+<div class="mood-row" id="mood-row"></div>
+
+<div id="card" class="card">
+  <div class="tag-row">
+    <span id="tag-el" class="tag"></span>
+    <span id="react-txt" class="react-txt"></span>
+  </div>
+  <p id="main-el" class="main-txt"></p>
+  <p id="sub-el" class="sub-txt"></p>
+  <div id="react-row" class="react-row"></div>
+</div>
+
+<button id="next-btn" onclick="next()">다음 피식 ↻</button>
+<p id="streak-el"></p>
+
+<script>
+const DB={
+  "오늘하루":{icon:"🗓",label:"오늘 하루",face:["😮‍💨","🥲","😑","🫠","😴","🤣","😶‍🌫️","🙂"],tag:["일상","공감","오늘","현실","인생"],main:[["일어나자마자 한 일","핸드폰 충전기 확인","(0% 였음)"],["오늘 할 일 리스트 작성","리스트 완성까지 2시간","나머지는 내일"],["'금방 할게' 말한 시각","3일 뒤에 시작함","뇌가 동의 안 함"],["물 마시러 일어났다가","냉장고 앞 10분 멍때림","목적 잊음"],["오늘도 일찍 자야지","다짐: 11시","실행: 새벽 2시"],["운동 시작 결심","오늘부터 진짜임","내일부터가 더 맞는 것 같기도"],["오늘 생산적으로 살기","유튜브 3시간","알고리즘 승"],["퇴근하고 뭔가 하려 했는데","소파에 앉는 순간","기억 삭제됨"]],reaction:["ㅇㅈ","나잖아","맞아","공감 200%","ㄹㅇ","..맞아","ㅠㅠ 진짜","ㅋㅋ 나도"]},
+  "직장인":{icon:"💼",label:"직장인",face:["😑","🫡","🥲","😶","💀","😮‍💨","🫠","😪"],tag:["직장","회의","월급","야근","점심"],main:[["회의 소집 이유","결론: 다음 회의 일정 잡기","2시간 경과"],["월요일 아침 8시 59분","1분 남았는데 커피 없음","인생은 시험이다"],["'간단하게 부탁해요'","기획서 30장","간단의 기준이 다름"],["점심 메뉴 고르기","11명 의견 수렴","결론: 아무거나"],["퇴근 5분 전","새 업무 도착","내일의 나에게 전달"],["'빠르게 확인 부탁드려요'","화요일 수신","금요일 오전 발견"],["재택 근무 회의","상반신: 정장","하반신: 잠옷"],["야근 후 집 도착","밥 먹어야지","눈 감음 → 아침"]],reaction:["ㅠㅠ진짜","퇴사각","공감","...맞아","ㅋㅋㅋ울어","사실이야","월급루팡이라도","현실"]},
+  "다이어트":{icon:"🥗",label:"다이어트",face:["😋","🫠","🥲","😤","😇","💀","🙂","😑"],tag:["식욕","다이어트","치팅","의지"],main:[["다이어트 시작일","오늘도 내일부터","전통 계승"],["치팅데이 기준","월화수목금 토 일","전부 치팅데이"],["운동 후 먹은 것","칼로리 소모: 300kcal","보충: 라면 + 밥"],["'조금만 먹어야지' 다짐","조금의 단위","그릇 기준"],["야식 안 먹기로 함","11시 55분","치킨 시킴"],["체중계 올라가기 전","숨 최대한 들이쉬기","결과 동일"],["물만 먹어도 찐다는 말","과학적으로 불가능","그런데 찜"],["헬스장 등록","3개월 결제","출석: 2회"]],reaction:["나잖아","ㅋㅋ 맞아","공감 300%","울고 싶다","내일부터","ㅠㅠ진짜","현실","사실임"]},
+  "새벽감성":{icon:"🌙",label:"새벽 감성",face:["🌙","😶‍🌫️","🥲","🤔","😴","✨","😑","🫠"],tag:["새벽","감성","생각","혼자","고요"],main:[["새벽 2시에 드는 생각","나 왜 이러고 있지","답 없음"],["자야 하는데 못 자는 이유","3년 전 부끄러운 기억","갑자기 소환됨"],["새벽에 유독 배고픈 과학","아직 밝혀지지 않음","라면이 답인 건 밝혀짐"],["이 시간에 깨어있는 사람들","각자의 이유가 있음","대부분 핸드폰 때문"],["새벽에 결심한 것들","아침에 기억 못 함","다행인지 불행인지"],["고요한 새벽 혼자 있을 때","갑자기 철학적이 됨","낮엔 아무 생각 없음"],["새벽 감성으로 쓴 메모","아침에 다시 읽어봄","이게 뭔가 싶음"],["자기 전 스마트폰 내려놓기","결심: 11시","현실: 새벽 3시"]],reaction:["...맞아","공감","ㅠㅠ","나만 그런 게 아님","새벽 감성","현실","ㄹㅇ","울컥"]},
+  "한국인특":{icon:"🇰🇷",label:"한국인 특",face:["😤","🙂","😑","🤣","😇","💀","🫡","😏"],tag:["한국인","문화","특징","밥","눈치"],main:[["밥 먹었어? 인사의 의미","밥: 안 먹었어도 먹었다","진짜 밥 얘기가 아님"],["어른한테 '맛있어요' 말하면","더 먹어 더 먹어","후회 없는 선택"],["한국인 카톡 특징","'ㅇㅇ' 한 글자로","모든 감정 표현 가능"],["처음 보는 사람과 나이 확인","3분 안에 완료","위아래 정립 끝"],["식당에서 물 리필","눈치껏 일어나서","직접 가져옴"],["빨리빨리 문화 증거","엘리베이터 닫힘 버튼","0.5초 참을 수 없음"],["단체 사진 찍을 때","'하나 둘 셋' 다음","실제 찍는 건 넷에서"],["눈치의 정의","말 안 해도 알아야 함","모르면 눈치 없는 것"]],reaction:["한국인 맞음","ㅋㅋ 진짜","공감","우리 문화","나만 그래?","ㄹㅇㅋㅋ","맞아맞아","사실"]},
+  "멍때리기":{icon:"🫥",label:"멍때리기",face:["😶","🫥","😑","🤤","😴","🙃","😵","🫠"],tag:["멍","무념","허공","뇌정지","공백"],main:[["지금 무슨 생각하냐고?","아무 생각 없음","뇌가 잠시 자리 비움"],["멍 때리다 깨어난 시간","5분인 줄 알았는데","30분 경과"],["허공 바라보는 이유","딱히 없음","그냥"],["멍때리기 도중 든 생각","문어는 왜 다리가 8개지","결론 없이 종료"],["뇌가 가장 활발한 순간","멍 때릴 때라는 연구","그러니까 지금 뇌 풀가동 중"],["아무것도 하기 싫을 때","아무것도 안 함","그것도 하나의 성과"],["지금 몇 시지?","시계 봄","3초 후 또 잊음"],["멍 때리다 문득 드는 감정","딱히 뭔지 모르겠음","그냥 그러함"]],reaction:["...","ㅇㅇ","그래","맞아","...맞아","공백","ㅁㅈㄷ","ㅇ"]}
+};
+const tagColors=[{bg:"#E6F1FB",tc:"#0C447C"},{bg:"#E1F5EE",tc:"#085041"},{bg:"#FBEAF0",tc:"#72243E"},{bg:"#EEEDFE",tc:"#3C3489"},{bg:"#FAEEDA",tc:"#633806"},{bg:"#EAF3DE",tc:"#27500A"},{bg:"#FAECE7",tc:"#712B13"},{bg:"#FCEBEB",tc:"#791F1F"}];
+const reactLabels=["ㅋㅋㅋ","공감","나잖아","맞아","ㄹㅇ","ㅠㅠ"];
+const reactCounts={};
+let currentMood="오늘하루",streak=0,usedKeys=new Set(),colorIdx=0;
+const varMap={"못 자는":"잠 못 드는","배고픈":"허기진","됨":"되어버림","경과":"가 흘러버림","기억 삭제":"기억 휘발","라면":"라면 한 봉지","진짜":"사실상","딱히":"별로"};
+
+const moodRow=document.getElementById('mood-row');
+Object.entries(DB).forEach(([k,v])=>{
+  const b=document.createElement('button');
+  b.className='mood-btn'+(k==='오늘하루'?' on':'');
+  b.textContent=`${v.icon} ${v.label}`;
+  b.onclick=()=>{
+    document.querySelectorAll('.mood-btn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');currentMood=k;usedKeys.clear();streak=0;next();
+  };
+  moodRow.appendChild(b);
+});
+
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function getVariation(line){
+  if(Math.random()<0.3){for(const[o,r]of Object.entries(varMap)){if(line.includes(o))return line.replace(o,r);}}
+  if(Math.random()<0.2){const s=["(진짜임)","(실화)","(매일)","(경험담)","(ㅠ)","(부정 불가)"];return line+' '+pick(s);}
+  return line;
+}
+
+function next(){
+  const d=DB[currentMood];
+  let avail=[...Array(d.main.length).keys()].filter(i=>!usedKeys.has(currentMood+'_'+i));
+  if(!avail.length){usedKeys.clear();avail=[...Array(d.main.length).keys()];}
+  const mi=pick(avail);usedKeys.add(currentMood+'_'+mi);
+  const m=d.main[mi];
+  const color=tagColors[colorIdx%tagColors.length];colorIdx++;streak++;
+  document.getElementById('face-el').textContent=pick(d.face);
+  const te=document.getElementById('tag-el');
+  te.textContent=pick(d.tag);te.style.background=color.bg;te.style.color=color.tc;
+  document.getElementById('react-txt').textContent=pick(d.reaction);
+  document.getElementById('main-el').textContent=m[0];
+  document.getElementById('sub-el').innerHTML=m.slice(1).map(getVariation).join('<br>');
+  const card=document.getElementById('card');
+  card.style.animation='none';card.offsetHeight;card.style.animation='pop 0.38s ease';
+  const rrow=document.getElementById('react-row');rrow.innerHTML='';
+  reactLabels.forEach(r=>{
+    const b=document.createElement('button');b.className='react-btn';
+    const c=reactCounts[r]||0;b.innerHTML=r+(c>0?' '+c:'');
+    b.onclick=()=>{reactCounts[r]=(reactCounts[r]||0)+1;b.innerHTML=r+' '+reactCounts[r];};
+    rrow.appendChild(b);
+  });
+  document.getElementById('streak-el').textContent=streak>=3?`🔥 ${streak}개 연속 피식 중`:'';
+}
+
+function shakeFace(){
+  const f=document.getElementById('face-el');
+  f.style.animation='wiggle 0.35s ease';
+  setTimeout(()=>{f.style.animation='bounce 2.8s ease-in-out infinite';},380);
+  const msgs=["ㅋㅋ","공감","맞아","ㄹㅇ","나잖아","💀","ㅠㅠ","🤣"];
+  const b=document.createElement('div');
+  b.textContent=msgs[Math.floor(Math.random()*msgs.length)];
+  b.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);font-size:14px;color:#aaa;pointer-events:none;animation:fadeUp 1s ease forwards;z-index:999;';
+  document.body.appendChild(b);setTimeout(()=>b.remove(),1000);
+}
+
+next();
+</script>
+</body>
+</html>
